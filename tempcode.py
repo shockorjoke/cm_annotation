@@ -11,113 +11,151 @@ from sklearn import neighbors
 import math
 import detail_approach
 import pandas as pd
+import random
 
 
 from torch import NoneType
 
-file = open('partage_de.bracketed')
+###################################################### For bracket format input test
+# file = open('partage_de.bracketed')
   
-# read the content of the file opened
-content = file.readlines()
+# # read the content of the file opened
+# content = file.readlines()
   
-# read 10th line from the file
-with open("test-sentences.bracketed", "w") as output: # output tree on output.bracketed
-    output.write(content[1])
-    output.write(content[11])
-    output.write(content[21])
-    output.write(content[31])
-    output.write(content[41])
-    output.write(content[51])
-    output.write(content[61])
-    output.write(content[71])
-    output.write(content[81])
-    output.write(content[91])
+
+# with open("test-sentences.bracketed", "w") as output: # output tree on output.bracketed
+#     output.write(content[18])
+#     output.write(content[48])
+#     output.write(content[68])
+#     output.write(content[128])
+#     output.write(content[158])
+#     output.write(content[188])
+#     output.write(content[198])
+#     output.write(content[208])
+#     output.write(content[268])
+#     output.write(content[338])
     
+
+#####################################################################
+
 with open("input-test-sentences.bracketed", "w") as output: #prepare input
     output.close()
+    
+    
+# with open('brackets_testsen.txt') as f: #edit sentence for input in bracket Format
+with open('brackets_export_gold_dev.txt') as f: #edit sentence for input in bracket Format
 
-with open('test-sentences.bracketed') as f: #edit sentence for input
     reader = incrementaltreereader(f, strict=True, functions= 'add')
     for tree, sent, comment in reader:
+
+        tree_position = [] # position-list of node
+        right_most_child_position = [] #position-list of right most child with left sibling
+        #left_most_child_position = []
         for subtree in tree.subtrees():
             for child in subtree:
                 if isinstance(child,int):
-                    subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
+                    subtree[0]="{}={}".format(subtree[0],sent[subtree[0]])
+
                 else:
-                    continue
-        
-        copy_tree_1=tree.copy(deep=True) #missing a node
-        for subtree in copy_tree_1.subtrees(): 
-            for child in subtree:
-                if isinstance(child,int):
-                    subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
-                else:
-                    if subtree.label == 'CLAUSE' and subtree.parent.label == 'SENTENCE':
-                        subtree.prune()
-                        
-        copy_tree_2=tree.copy(deep=True) #superfluous node with same label 
+                    tree_position.append(subtree.treeposition)
+                    if child.right_sibling == None and child.left_sibling != None:
+                        right_most_child_position.append(subtree.treeposition)
+                    # if subtree.left_sibling == None:
+                    #     left_most_child_position.append(subtree.treeposition)
+                    
+
+
+        ########################################### Missing node 
+        copy_tree_2=tree.copy(deep=True) 
+        pos = random.choice(tree_position[2:])
+        #print(pos)
         for subtree in copy_tree_2.subtrees():
             for child in subtree:
                 if isinstance(child,int):
                     subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
-                else:
-                    if subtree.label == 'SENTENCE' and subtree.parent == None:
-                        subtree.splicebelow('CLAUSE')
-                        
-        copy_tree_3=tree.copy(deep=True) #superfluous node with different label 
-        for subtree in copy_tree_3.subtrees():
-            for child in subtree:
-                if isinstance(child,int):
-                    subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
-                else:
-                    if subtree.label == 'SENTENCE' and subtree.parent == None:
-                        subtree.splicebelow('CORE')
-                        
-        copy_tree_4=tree.copy(deep=True) #Wrong label
-        for subtree in copy_tree_4.subtrees():
-            for child in subtree:
-                if isinstance(child,int):
-                    subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
-                else:
-                    if subtree.label == 'CORE' and subtree.parent.label == 'CLAUSE' :
-                        subtree.label = 'CORE_N'
-                        
-        copy_tree_5=tree.copy(deep=True) #wrong branch TODO
+            if subtree.treeposition ==pos: 
+                # print(subtree.label)
+                subtree.prune()
+        ###############################################################################
+        
+        ########################################### Superflous node with same label   
+        copy_tree_5=tree.copy(deep=True) 
+        pos2 = random.choice(tree_position[2:])
         for subtree in copy_tree_5.subtrees():
             for child in subtree:
                 if isinstance(child,int):
+                    subtree[0]="{}={}".format(subtree[0],sent[subtree[0]])
+                    #sent[subtree[0]] = "{}={}".format(subtree[0],sent[subtree[0]])
+            if subtree.treeposition ==pos2: 
+                subtree.splicebelow(subtree.label)
+        ###############################################################################
+                
+        ############################################# Wrong branch
+        copy_tree_6=tree.copy(deep=True) 
+        stop6 = False
+        if len(right_most_child_position) == 1:
+            right_most_pos = right_most_child_position[0]
+        elif len(right_most_child_position) == 2:
+            right_most_pos = right_most_child_position[1]
+        else:
+            right_most_pos = random.choice(right_most_child_position[2:])
+        
+        for subtree in copy_tree_6.subtrees():
+            for child in subtree:
+                if isinstance(child,int):
                     subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
-            if subtree.label == 'NP' and subtree.parent.label == 'CORE':
-                subtree.parent.parent.append(subtree.detach())
+                    #sent[subtree[0]] = "{}={}".format(subtree[0],sent[subtree[0]])
+            if stop6 == False and subtree.treeposition ==right_most_pos:  #when the mothernode the rightmost
+                for child in subtree:
+                    if child.right_sibling == None and child.left_sibling != None: #if the current node is right most   
+                        subtree.parent.append(child.detach()) #move this current node and its children to rightmost of oma node
+                        stop6 = True
+        #############################################################################################
+        
+        ############################################# Wrong label
+        copy_tree_7=tree.copy(deep=True) 
+        stop7 = False
 
-
-
-        # copy_tree_6=tree.copy(deep=True)      
-        # for subtree in copy_tree_6.subtrees():
-        #     for child in subtree:
-        #         if isinstance(child,int):
-        #             subtree[0] = "{}={}".format(subtree[0],sent[subtree[0]])
-        #         else:
-        #             if subtree.label == 'SENTENCE' and subtree.parent == None:
-        #                 subtree.splicebelow('CLAUSE')
-        with open("input-test-sentences.bracketed", "a") as output:
+        for subtree in copy_tree_7.subtrees():
+            for child in subtree:
+                if isinstance(child,int):
+                    subtree[0]="{}={}".format(subtree[0],sent[subtree[0]])
+                    #sent[subtree[0]] = "{}={}".format(subtree[0],sent[subtree[0]])
+            if stop7 == False: #label case
+                if subtree.label in ['NUC_N', 'AP', 'NUC_A']:
+                    subtree.label = 'NUC'
+                    stop7 = True
+                if subtree.label in ['NUC']:
+                    subtree.label = 'NUC_A'
+                    stop7 = True
+                if subtree.label in ['CORE_A', 'CORE_N']:
+                    subtree.label = 'CORE'
+                    stop7 = True
+                if subtree.label in ['N']:
+                    subtree.label = subtree.label+'-PROP'
+                    stop7 = True
+                if subtree.label in ['SENTENCE','NP','PP']:
+                    subtree.label = subtree.label+'-PERI'
+                    stop7 = True
+                if subtree.label in ['V','OP']:
+                    subtree.label = subtree.label+'-DEF'
+                    stop7 = True
+        #############################################################################################
+ 
+            
+        with open("input-test-sentences.bracketed", "a") as output: #parepare input for error test, top is correct and bottom is error tree
             output.write(str(tree)+'\n')
-            output.write(str(copy_tree_1)+'\n')
-            output.write(str(tree)+'\n')
-            output.write(str(copy_tree_2)+'\n')
-            output.write(str(tree)+'\n')
-            output.write(str(copy_tree_3)+'\n')
-            output.write(str(tree)+'\n')
-            output.write(str(copy_tree_4)+'\n')
-            output.write(str(tree)+'\n')
-            output.write(str(copy_tree_5)+'\n')
-            # output.write(str(tree)+'\n')
-            # output.write(str(copy_tree_6)+'\n')
+            output.write(str(copy_tree_2[0])+'\n')  #uncommen to create missing node error
+            # output.write(str(copy_tree_5[0])+'\n')  #uncommen to create superflous label error
+            # output.write(str(copy_tree_6[0])+'\n')  #uncommen to create wrong branch label error
+            # output.write(str(copy_tree_7[0])+'\n')  #uncommen to create wrong label label error
             
 with open("compare_output.txt", "w") as output: #prepare input
     output.close()
+    
 
-detail_approach.output_tree('input-test-sentences.bracketed') #run anotation
+
+detail_approach.output_tree('input-test-sentences.bracketed') #run error detected/score
 
 with open('output.bracketed') as f:
     reader = incrementaltreereader(f, strict=True, functions= 'add')
@@ -127,46 +165,22 @@ with open('output.bracketed') as f:
         for subtree in tree.subtrees():
             diff_list.append(subtree.label)
         diff_lists.append(diff_list)
-    # print(diff_lists[2])
-    # print(diff_lists[3])
+
+######################################## Comparision, use only when compare 2 trees at a time used just ignore the "error out of range"
     with open("compare_output.txt", "a") as output: #compare
         for l in range(len(diff_lists)):
             if l % 2==0:
-                output.write('-------------------- Sentence ' + str(int((l/10))+1)+ '---------------------------------------'+'\n')
-                output.write(str(list(sorted(set(diff_lists[l])-set(diff_lists[l+1]),reverse=True)))+'\n')
-                output.write(str(list(sorted(set(diff_lists[l+1])-set(diff_lists[l]),reverse=True)))+'\n')
-                # output.write(str(list(set(diff_lists[l])-set(diff_lists[l+1])))+'\n')
-                # output.write(str(list(set(diff_lists[l+1])-set(diff_lists[l])))+'\n')   
+                output.write('-------------------- Sentence ' + str(int((l/2))+1)+ '---------------------------------------'+'\n') 
+                
+                c1 = Counter(diff_lists[l]) 
+                c2 = Counter(diff_lists[l+1])
+                diff1 = c1-c2
+                diff2 = c2-c1
+                output.write(str(list(diff1.elements()))+'\n')
+                output.write(str(list(diff2.elements()))+'\n')
+########################################################
 
-with open('top_and_bottom_ten.txt', 'w') as tb: 
-    tb.close()
-    
-# with open('top_and_bottom_ten.txt', 'w') as tb:
-    
-    
-    # self_rules_posibility,left_neighbour_rules_posibility,right_neighbour_rules_posibility,_,_ = detail_approach.confident_measure()
-    # df_self=pd.DataFrame.from_dict(self_rules_posibility, orient='index', columns=['score'])
-    # tb.write('---Self_rule---'+'\n')
-    # tb.write(str(df_self.score.nlargest(10))+'\n')
-    
-    # df_left=pd.DataFrame.from_dict(left_neighbour_rules_posibility, orient='index', columns=['score'])
-    # tb.write('---Left_rule---'+'\n')
-    # tb.write(str(df_left.score.nlargest(10))+'\n')
-    
-    # df_right=pd.DataFrame.from_dict(right_neighbour_rules_posibility, orient='index', columns=['score'])
-    # tb.write('---Right_rule---''\n')
-    # tb.write(str(df_right.score.nlargest(10))+'\n')
-    
-    # tb.write('---Self_rule---'+'\n')
-    # tb.write(str(df_self.score.nsmallest(10))+'\n')
-    
-    # df_left=pd.DataFrame.from_dict(left_neighbour_rules_posibility, orient='index', columns=['score'])
-    # tb.write('---Left_rule---'+'\n')
-    # tb.write(str(df_left.score.nsmallest(10))+'\n')
-    
-    # df_right=pd.DataFrame.from_dict(right_neighbour_rules_posibility, orient='index', columns=['score'])
-    # tb.write('---Right_rule---''\n')
-    # tb.write(str(df_right.score.nsmallest(10))+'\n')
+
 
     
 
